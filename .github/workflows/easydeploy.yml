@@ -1,0 +1,54 @@
+name: Verify and publish EasyDeploy component
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: easydeploy-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - name: Verify container contract
+        run: bash scripts/smoke-container.sh
+
+  predeploy:
+    needs: verify
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/easydeploy-runtime.yml
+    permissions:
+      contents: read
+      packages: read
+    with:
+      publish: false
+    secrets:
+      EASYDEPLOY_REPO_TOKEN: ${{ secrets.EASYDEPLOY_REPO_TOKEN }}
+
+  publish:
+    needs: verify
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/easydeploy-runtime.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      publish: true
+    secrets:
+      EASYDEPLOY_REPO_TOKEN: ${{ secrets.EASYDEPLOY_REPO_TOKEN }}

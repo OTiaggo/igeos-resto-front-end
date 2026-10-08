@@ -1,0 +1,6 @@
+app: igeos-resto-front-end
+enabled: true
+environments:
+  - dev
+namespacePrefix: igeos-resto-front-end
+specPath: app.yaml

@@ -1,0 +1,29 @@
+apiVersion: easydeploy.io/v1alpha5
+kind: Application
+metadata:
+  name: igeos-resto-front-end
+  environment: dev
+  namespace: igeos-resto-front-end-dev
+
+workloads:
+  frontend:
+    image: .
+    ports:
+      http: 8080
+    service:
+      enabled: true
+    envFromConfig: all
+    probes:
+      readiness:
+        httpGet:
+          path: /healthz
+          port: http
+      liveness:
+        httpGet:
+          path: /healthz
+          port: http
+
+config:
+  PUBLIC_API_BASE_URL: /api
+  PUBLIC_OIDC_AUTHORITY: ""
+  PUBLIC_OIDC_CLIENT_ID: ""

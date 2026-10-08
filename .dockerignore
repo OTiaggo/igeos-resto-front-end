@@ -1,0 +1,12 @@
+.git
+.github
+.easydeploy
+.easydeploy-tools
+node_modules
+dist
+coverage
+rendered
+.env*
+specs
+plan.md
+README.md

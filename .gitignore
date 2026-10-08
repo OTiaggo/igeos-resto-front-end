@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+rendered/
+.easydeploy/*
+!.easydeploy/app-metadata.yaml
+.easydeploy-tools/
+.DS_Store

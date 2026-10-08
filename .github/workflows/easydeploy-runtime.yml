@@ -1,0 +1,74 @@
+name: EasyDeploy runtime
+
+on:
+  workflow_call:
+    inputs:
+      publish:
+        type: boolean
+        required: true
+    secrets:
+      EASYDEPLOY_REPO_TOKEN:
+        required: true
+
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Check tooling access
+        env:
+          TOOLING_TOKEN: ${{ secrets.EASYDEPLOY_REPO_TOKEN }}
+        run: |
+          if [ -z "$TOOLING_TOKEN" ]; then
+            echo 'Configure o secret EASYDEPLOY_REPO_TOKEN com leitura do toolkit privado.' >&2
+            exit 1
+          fi
+      - name: Checkout private EasyDeploy toolkit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ideos/easydeploy
+          ref: 0418cf1c31bd77c1834c12da0119b4cd39d64e22
+          path: .easydeploy-tools
+          token: ${{ secrets.EASYDEPLOY_REPO_TOKEN }}
+          persist-credentials: false
+      - name: Setup Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        with:
+          version: v3.17.3
+      - name: Setup uv
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
+        with:
+          version: "0.12.0"
+      - name: Validate discovery metadata
+        working-directory: .easydeploy-tools
+        run: |
+          uv sync --no-dev --frozen
+          uv run python - <<'PY'
+          import os
+          import yaml
+          from pathlib import Path
+          root = Path(os.environ['GITHUB_WORKSPACE'])
+          spec = yaml.safe_load((root / 'app.yaml').read_text())
+          marker = yaml.safe_load((root / '.easydeploy/app-metadata.yaml').read_text())
+          assert marker['app'] == spec['metadata']['name'] == 'igeos-resto-front-end'
+          assert marker['enabled'] is True
+          assert marker['specPath'] == 'app.yaml'
+          assert marker['environments'] == [spec['metadata']['environment']] == ['dev']
+          assert spec['metadata']['namespace'] == marker['namespacePrefix'] + '-dev'
+          PY
+      - name: Validate, build and render component
+        uses: ./.easydeploy-tools
+        with:
+          spec: app.yaml
+          release: igeos-resto-front-end
+          environment: dev
+          push_image: ${{ inputs.publish }}
+          push_chart: ${{ inputs.publish }}
+      - name: Upload delivery evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: easydeploy-artifacts
+          path: rendered/
+          if-no-files-found: error
